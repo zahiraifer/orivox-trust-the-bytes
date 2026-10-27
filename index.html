@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trust the Bytes, Not the Label: How Orivox Proves What Is Running</title>
+<style>
+body{max-width:42rem;margin:2rem auto;padding:0 1rem;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6;color:#222}
+h1{line-height:1.2}blockquote{border-left:4px solid #ccc;margin:1rem 0;padding:.2rem 1rem;color:#444}
+code{font-family:ui-monospace,Menlo,Consolas,monospace}
+</style>
+</head>
+<body>
+<h1>Trust the Bytes, Not the Label: How Orivox Proves What Is Running</h1>
+<p><em>By Zahi Raifer</em></p>
+<blockquote>
+<p>Zahi Raifer has 23 years of experience in AI, Python, .NET and databases. He is the founder of <a href="https://orivox.org">Orivox</a>, where he focuses on product development, not sales.</p>
+</blockquote>
+<p><em>Disclosure: this article was drafted with the help of an AI assistant and reviewed by the author. All facts come from Orivox's own description of its system.</em></p>
+<p>Most writing about AI website builders is about the model. This piece is about something duller and, for a customer, more important: how a line of code travels from a developer's screen to the server that edits your site, and how we know, afterwards, that it really arrived.</p>
+<h2>The rule: nobody edits production by hand</h2>
+<p>At Orivox, code never changes on a production server by hand. There is one path, and every change takes it:</p>
+<ol>
+<li>The code is pushed to the repository.</li>
+<li>It is pulled into the development environment.</li>
+<li>It is verified there.</li>
+<li>It is promoted to production from an admin dashboard.</li>
+</ol>
+<p>The dashboard is not a convenience button. It records every release and keeps a backup of what it replaced. So every production state has a history entry, and every previous state has a copy.</p>
+<h2>Development is a real environment, not a laptop</h2>
+<p>The development environment has its own copy of the web app and the editing service, with its own site files. That separation matters: new code meets real usage before production sees it, but it does so against files that are not a customer's live site. A mistake in development damages development.</p>
+<h2>Order matters: the callee ships first</h2>
+<p>The system is two codebases: a web app, and an editing service that the web app calls over HTTP. Releases follow that dependency. The editing service goes first, then the web app that calls it.</p>
+<p>The contract between them changes in three steps: make the change additive, release it, and only then start using it. Seen from the release path, this is what lets the two services ship independently. At no moment is a new web app calling an editing service that does not yet understand it, and at no moment does an older caller break because a field it relied on disappeared. The contracts are pinned by tests on both sides, so "additive" is checked, not assumed.</p>
+<h2>The standby is the last rehearsal</h2>
+<p>Production runs on two identical servers; only one takes traffic at a time. A release goes to the standby first and is checked there before it takes a single customer request. The web app and the editing service have separate switches, so each can move between servers on its own, which fits naturally with the callee-first order above. Because site files live on shared storage mounted by both servers, a switch moves no files. Rolling back is moving traffic back.</p>
+<h2>Verifying by content</h2>
+<p>Here is the step this article is really about. When a release is done, how do you know what is running?</p>
+<p>The common answer is a version label: a tag, a build number, a string in a config file. Labels are claims. They can be stale, copied, or set by a step that succeeded while the step after it failed.</p>
+<p>Orivox confirms a release by hashing the files that are actually running, not by trusting a version label. The question being asked changes from "what does the server say it is?" to "what is it, byte for byte?" If the hash matches what was verified in development and on the standby, the release is what we tested. If not, we know before a customer does.</p>
+<p>This is the same philosophy the editing engine uses on customer pages, where a claim of success needs a real change. In both places, the system does not accept a report; it checks the thing reported on.</p>
+<h2>Nothing restarts behind our back</h2>
+<p>A verified state is only useful if it stays put. Services restart only when we release; operating-system updates never bounce the application on their own schedule. The running code changes at the moments we choose, through the path above, and at no other time.</p>
+<h2>Watching from the outside</h2>
+<p>Inside checks can agree with each other and still miss what a customer sees. So every five minutes a probe walks the AI connector end to end, from discovery and sign-in to a real tool call, and emails an incident report on any failure and on recovery. When something does fail live, the fix comes with a replay test, so the same failure becomes a permanent check.</p>
+<h2>The shape of it</h2>
+<p>Put together, a release at Orivox is a chain of evidence rather than a sequence of hopes:</p>
+<ul>
+<li>one path into production, with a recorded release and a backup of what it replaced;</li>
+<li>a separate development environment with its own files;</li>
+<li>callee first, additive contracts, tests on both sides;</li>
+<li>a rehearsal on the standby before any traffic moves;</li>
+<li>confirmation by hashing what is actually running;</li>
+<li>no unplanned restarts;</li>
+<li>an outside probe every five minutes.</li>
+</ul>
+<p>None of it is clever. Each step is enforced by code or by process rather than by care, so it holds on a busy day as well as a quiet one.</p>
+</body>
+</html>
